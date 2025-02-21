@@ -2,6 +2,7 @@ import asyncio
 import aiohttp
 import logging
 import csv
+import os
 import sys
 from datetime import datetime, timezone
 import tqdm
@@ -29,6 +30,7 @@ KEY_MAP = {
     "n": "transactions",
     "s": "symbol",
 }
+OUTPUT_KEYS = list(KEY_MAP.values())
 TYPE_MAP = {
     "t": int,
     "T": int,
@@ -142,15 +144,42 @@ async def main():
         contracts = await fetch_all_contracts(session)
         logging.info(f"Fetched {len(contracts)} contracts for batch query.")
 
-        coroutines = [fetch_data(session, contract) for contract in contracts][:3]
+        # Create batches of ~9 requests per minute to stay under rate limit
+        batch_size = 5
+        batches = [
+            contracts[i : i + batch_size] for i in range(0, len(contracts), batch_size)
+        ]
 
-        logging.info("Fetching data for all contracts...")
+        logging.info("Fetching data for all contracts in batches...")
 
-        # The API rate limit is 9.5 requests per minute on this endpoint
-        # We will attempt to fetch with back-off to avoid rate limiting
-        results = await asyncio.gather(*coroutines)
+        results = []
+        for batch in batches:
+            coroutines = [fetch_data(session, contract) for contract in batch]
+            batch_results = await asyncio.gather(*coroutines)
 
-        print(results)
+            for item in batch_results:
+                results.extend(item)
+
+            logging.info(f"Scraped {len(results)} data points so far.")
+
+            # Create the output file if it does not exist
+            os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
+
+            with open(OUTPUT_CSV, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=OUTPUT_KEYS)
+                writer.writeheader()
+                writer.writerows(results)
+
+            if batch != batches[-1]:
+                logging.info(
+                    f"Completed batch of {len(batch)} contracts. Waiting before next batch..."
+                )
+                await asyncio.sleep(60)
+
+        logging.info(
+            f"Completed fetching data for all contracts. {len(results)} results found."
+        )
+
     return
 
 
