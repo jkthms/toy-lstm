@@ -7,6 +7,8 @@ open_timestamp,close_timestamp,close,high,low,open,volume,transactions,symbol
 1735659000000,1735659899999,95793.0,96040.0,95500.0,95640.0,171.87256,2061,BTC
 ```
 
+This script scrapes 826017 data points as of 21st February 2025.
+
 ## Usage
 
 ```
