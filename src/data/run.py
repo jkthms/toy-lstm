@@ -153,22 +153,26 @@ async def main():
         logging.info("Fetching data for all contracts in batches...")
 
         results = []
+        # Create the output file if it does not exist
+        os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
+
+        # Write header at start
+        with open(OUTPUT_CSV, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=OUTPUT_KEYS)
+            writer.writeheader()
+
         for batch in batches:
             coroutines = [fetch_data(session, contract) for contract in batch]
             batch_results = await asyncio.gather(*coroutines)
 
-            for item in batch_results:
-                results.extend(item)
+            # Write each batch's results to file
+            with open(OUTPUT_CSV, "a", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=OUTPUT_KEYS)
+                for item in batch_results:
+                    writer.writerows(item)
+                    results.extend(item)
 
             logging.info(f"Scraped {len(results)} data points so far.")
-
-            # Create the output file if it does not exist
-            os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
-
-            with open(OUTPUT_CSV, "w", newline="") as f:
-                writer = csv.DictWriter(f, fieldnames=OUTPUT_KEYS)
-                writer.writeheader()
-                writer.writerows(results)
 
             if batch != batches[-1]:
                 logging.info(
