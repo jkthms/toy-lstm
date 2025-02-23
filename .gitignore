@@ -170,3 +170,4 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 src/data/files/futures.csv
+src/model/test.csv
